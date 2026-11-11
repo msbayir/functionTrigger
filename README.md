@@ -1,10 +1,10 @@
 # Azure Function: Flex Consumption
 
-Komutları Azure Portal'daki **Cloud Shell (Bash)** oturumunda çalıştırın. Cloud Shell oturumu zaten kimlik doğrulamış ve etkin aboneliği seçmiş olur.
+Bu kurulumun tamamını Azure Portal'daki **Cloud Shell (Bash)** içinde, aynı oturumda çalıştırın. Cloud Shell zaten Azure'da oturum açmıştır. Uygulama kodunu Portal editöründe değiştirmeyin: Flex Consumption deployment paketi read-only çalışır. Kodu Cloud Shell projesinde üretip yeniden yayımlayın.
 
-## 1. Function App oluşturun
+## 1. Flex Consumption Function App oluşturun
 
-Flex Consumption destekleyen bölgeleri görüntüleyin ve kullanacağınız bölgeyi seçin:
+Desteklenen bir bölge seçin:
 
 ```bash
 az functionapp list-flexconsumption-locations --query "[].name" -o table
@@ -25,13 +25,14 @@ az storage account create --name "$STORAGE" --resource-group "$RG" \
 az functionapp create --resource-group "$RG" --name "$APP" \
   --storage-account "$STORAGE" --flexconsumption-location "$LOCATION" \
   --runtime node --runtime-version 22 --https-only true
+printf 'Function App: %s\nResource Group: %s\n' "$APP" "$RG"
 ```
 
 `az functionapp create` Application Insights kaynağını da varsayılan olarak oluşturur.
 
-## 2. İletişim endpoint'ini oluşturup yayımlayın
+## 2. Projeyi Cloud Shell'de oluşturun
 
-`func` yüklü değilse Azure Functions Core Tools v4'ü kurun. Yeni JavaScript v4 projesi ve HTTP trigger oluşturun:
+Core Tools v4'ü kurun ve JavaScript v4 HTTP trigger projesini oluşturun:
 
 ```bash
 npm install -g azure-functions-core-tools@4 --unsafe-perm true
@@ -40,9 +41,10 @@ func init . --worker-runtime javascript --model V4
 func new --template "HTTP trigger" --name HttpExample
 ```
 
-`src/functions/HttpExample.js` içeriğini aşağıdakiyle değiştirin. GET tarayıcıda 200 döndürür; POST iletişim formu alanlarını doğrular. Bu örnek iletiyi kaydetmez veya e-posta göndermez.
+Portal code editor read-only olduğundan, function dosyasını doğrudan Cloud Shell terminalinde oluşturun:
 
-```javascript
+```bash
+cat > src/functions/HttpExample.js <<'EOF'
 const { app } = require('@azure/functions');
 
 app.http('HttpExample', {
@@ -71,18 +73,28 @@ app.http('HttpExample', {
     return { status: 202, jsonBody: { message: 'Submission received.' } };
   },
 });
+EOF
 ```
 
-Uygulamayı yayımlayın ve kendi web sitenizin origin'ine CORS izni verin:
+GET tarayıcıda `200 OK` döndürür. POST, iletişim formu alanlarını doğrular ve `202 Accepted` döndürür. Bu örnek iletiyi kaydetmez veya e-posta göndermez.
+
+## 3. Yayımlayın ve CORS'u ayarlayın
+
+Projeyi Azure'a yayımlayın. İletişim formunuz farklı bir web sitesindeyse, o sitenin origin'ine CORS izni verin:
 
 ```bash
 func azure functionapp publish "$APP"
+SITE_ORIGIN="https://your-site.example"
 az functionapp cors add --resource-group "$RG" --name "$APP" \
-  --allowed-origins "https://<SITE_DOMAIN>"
+  --allowed-origins "$SITE_ORIGIN"
 ```
 
-`<SITE_DOMAIN>` değerini sitenizin origin'iyle değiştirin (ör. `https://example.com`). CORS yalnızca tarayıcıların başka bir origin'den yaptığı çağrıları sınırlar; kimlik doğrulama veya kötüye kullanım koruması değildir. Endpoint anonim ve herkese açık olduğundan, gerçek ileti kaydı/e-posta gönderimi eklerken spam koruması ve sunucu tarafı doğrulamayı da değerlendirin.
+`SITE_ORIGIN` değerini kendi sitenizin adresiyle değiştirin. CORS, key'siz `200` davranışını bozmaz; yalnızca tarayıcıdan farklı origin'lerle yapılan çağrıları sınırlar. CORS kimlik doğrulama değildir. Endpoint herkese açık ve anonimdir; örnek alanları doğrular ama iletiyi kaydetmez.
 
-## 3. Endpoint'i test edin ve logları inceleyin
+## 4. Endpoint'i açın ve logları inceleyin
 
-Tarayıcıda `https://<APP_NAME>.azurewebsites.net/api/HttpExample` adresini açın. `<APP_NAME>` yerine Function App adını yazın; `Contact endpoint is ready.` yanıtı `200 OK` anlamına gelir. Application Insights loglarını Azure Portal'da Function App'in ilişkili Application Insights kaynağından inceleyin.
+Tarayıcıda şu adresi açın; `Contact endpoint is ready.` yanıtı `200 OK` demektir:
+
+`https://<APP>.azurewebsites.net/api/HttpExample`
+
+`<APP>` yerine 1. adımda yazdırılan Function App adını koyun. Application Insights loglarını Azure Portal'da, bu Function App'in ilişkili Application Insights kaynağının **Logs** bölümünden inceleyin.
