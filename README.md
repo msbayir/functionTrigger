@@ -32,10 +32,10 @@ printf 'Function App: %s\nResource Group: %s\n' "$APP" "$RG"
 
 ## 2. Projeyi Cloud Shell'de oluşturun
 
-Core Tools v4'ü kurun ve JavaScript v4 HTTP trigger projesini oluşturun:
+Cloud Shell'deki Core Tools sürümünü doğrulayın ve JavaScript v4 HTTP trigger projesini oluşturun:
 
 ```bash
-npm install -g azure-functions-core-tools@4 --unsafe-perm true
+func --version
 mkdir "functionTrigger-$SUFFIX" && cd "functionTrigger-$SUFFIX"
 func init . --worker-runtime javascript --model V4
 func new --template "HTTP trigger" --name HttpExample
